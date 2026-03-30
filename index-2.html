@@ -1,0 +1,899 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WOD Coach</title>
+<link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&family=Roboto:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  /* ── CONFIG NOTE ─────────────────────────────────────────────────────────
+     Replace the two values in the <script> block at the bottom:
+       SUPABASE_URL  — your project URL from Supabase > Settings > API
+       SUPABASE_ANON — your anon public key from the same page
+  ───────────────────────────────────────────────────────────────────────── */
+
+  :root {
+    --bg: #f6f8fc;
+    --surface: #ffffff;
+    --border: #e0e0e0;
+    --border-light: #f1f3f4;
+    --accent: #1a73e8;
+    --accent-light: #e8f0fe;
+    --accent2: #ea4335;
+    --green: #34a853;
+    --text: #202124;
+    --text-muted: #5f6368;
+    --text-dim: #80868b;
+    --hover: #f1f3f4;
+    --sidebar-w: 230px;
+    --header-h: 64px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Roboto', sans-serif;
+    font-size: 14px;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* HEADER */
+  .header {
+    height: var(--header-h);
+    background: var(--surface);
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    gap: 12px;
+    flex-shrink: 0;
+    border-bottom: 1px solid var(--border);
+    z-index: 10;
+  }
+
+  .logo { display: flex; align-items: center; gap: 8px; min-width: 180px; }
+
+  .logo-icon {
+    width: 36px; height: 36px;
+    background: var(--accent); border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    color: white; font-weight: 700; font-size: 15px;
+    font-family: 'Google Sans', sans-serif; flex-shrink: 0;
+  }
+
+  .logo-text {
+    font-family: 'Google Sans', sans-serif;
+    font-size: 20px; color: var(--text-muted); font-weight: 400;
+  }
+
+  .logo-text span { color: var(--accent); font-weight: 500; }
+
+  .search-wrap { flex: 1; max-width: 680px; }
+
+  .search-bar {
+    background: var(--bg); border: 1px solid transparent;
+    border-radius: 24px; height: 44px;
+    display: flex; align-items: center;
+    padding: 0 16px; gap: 10px; transition: all 0.2s;
+  }
+
+  .search-bar:focus-within {
+    background: white; border-color: var(--border);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  }
+
+  .search-bar input {
+    flex: 1; border: none; outline: none;
+    background: transparent; font-family: 'Roboto', sans-serif;
+    font-size: 14px; color: var(--text);
+  }
+
+  .header-right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+
+  .avatar {
+    width: 36px; height: 36px; border-radius: 50%;
+    background: var(--accent); color: white;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Google Sans', sans-serif;
+    font-weight: 500; font-size: 14px; cursor: pointer; flex-shrink: 0;
+  }
+
+  /* CONNECTION STATUS */
+  .conn-status {
+    font-size: 11px; font-family: 'Google Sans', sans-serif;
+    padding: 3px 10px; border-radius: 12px; font-weight: 500;
+  }
+  .conn-ok { background: #e6f4ea; color: var(--green); }
+  .conn-err { background: #fce8e6; color: var(--accent2); }
+  .conn-loading { background: var(--accent-light); color: var(--accent); }
+
+  /* BODY */
+  .body { display: flex; flex: 1; overflow: hidden; }
+
+  /* SIDEBAR */
+  .sidebar {
+    width: var(--sidebar-w); flex-shrink: 0;
+    padding: 8px 0; overflow-y: auto;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+  }
+
+  .compose-btn {
+    display: flex; align-items: center; gap: 12px;
+    margin: 8px 16px 16px; padding: 14px 20px;
+    background: #c2e7ff; border-radius: 16px; cursor: pointer;
+    font-family: 'Google Sans', sans-serif;
+    font-size: 14px; font-weight: 500; color: #001d35;
+    border: none; transition: box-shadow 0.2s;
+    width: calc(100% - 32px);
+  }
+
+  .compose-btn:hover { box-shadow: 0 2px 6px rgba(0,0,0,0.15); }
+
+  .nav-item {
+    display: flex; align-items: center; gap: 16px;
+    padding: 4px 16px 4px 26px; height: 36px;
+    border-radius: 0 18px 18px 0; cursor: pointer;
+    font-size: 14px; color: var(--text);
+    transition: background 0.15s;
+    margin-right: 16px; user-select: none;
+  }
+
+  .nav-item:hover { background: var(--hover); }
+  .nav-item.active { background: var(--accent-light); font-weight: 500; }
+  .nav-icon { font-size: 18px; width: 20px; text-align: center; }
+  .nav-label { flex: 1; }
+  .nav-badge { font-size: 12px; font-weight: 500; color: var(--text-muted); }
+
+  .sidebar-divider { height: 1px; background: var(--border); margin: 8px 0; }
+
+  .sidebar-section-label {
+    padding: 8px 26px 4px; font-size: 11px; font-weight: 500;
+    color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.8px;
+  }
+
+  /* MAIN */
+  .main { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
+
+  .page { display: none; flex-direction: column; height: 100%; overflow: hidden; }
+  .page.active { display: flex; }
+
+  /* TOOLBAR */
+  .toolbar {
+    display: flex; align-items: center;
+    padding: 10px 16px; border-bottom: 1px solid var(--border);
+    gap: 8px; background: var(--surface); flex-shrink: 0;
+  }
+
+  .page-title {
+    font-family: 'Google Sans', sans-serif;
+    font-size: 16px; font-weight: 500; color: var(--text);
+  }
+
+  .toolbar-spacer { flex: 1; }
+
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 7px 14px; border-radius: 4px;
+    border: 1px solid var(--border); background: var(--surface);
+    color: var(--text-muted); font-size: 13px; cursor: pointer;
+    font-family: 'Roboto', sans-serif; transition: all 0.15s; white-space: nowrap;
+  }
+
+  .btn:hover { background: var(--hover); border-color: #c6c9cc; }
+  .btn-primary { background: var(--accent); color: white; border-color: var(--accent); }
+  .btn-primary:hover { background: #1557b0; border-color: #1557b0; }
+  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  /* SCROLL PANEL */
+  .scroll-panel { flex: 1; overflow-y: auto; padding: 20px; }
+
+  /* CARDS */
+  .card {
+    background: var(--surface); border-radius: 8px;
+    border: 1px solid var(--border); margin-bottom: 16px; overflow: hidden;
+  }
+
+  .card-header {
+    padding: 14px 20px; border-bottom: 1px solid var(--border-light);
+    display: flex; align-items: center; gap: 12px;
+  }
+
+  .card-title {
+    font-family: 'Google Sans', sans-serif;
+    font-size: 15px; font-weight: 500; color: var(--text);
+  }
+
+  .card-sub { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+  .card-body { padding: 20px; }
+
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+
+  @media (max-width: 900px) { .two-col { grid-template-columns: 1fr; } }
+
+  textarea {
+    width: 100%; border: 1px solid var(--border); border-radius: 4px;
+    padding: 12px; font-family: 'Roboto', sans-serif;
+    font-size: 14px; color: var(--text); resize: vertical; min-height: 140px;
+    outline: none; transition: border-color 0.2s;
+    background: var(--surface); line-height: 1.6;
+  }
+
+  textarea:focus { border-color: var(--accent); }
+  textarea::placeholder { color: var(--text-dim); }
+
+  .btn-row { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
+
+  /* Day chips */
+  .day-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+
+  .day-chip {
+    padding: 5px 12px; border-radius: 16px;
+    border: 1px solid var(--border); background: var(--surface);
+    font-size: 12px; font-weight: 500;
+    font-family: 'Google Sans', sans-serif;
+    cursor: pointer; transition: all 0.15s; color: var(--text-muted);
+  }
+
+  .day-chip:hover { background: var(--hover); }
+  .day-chip.active { background: var(--accent); color: white; border-color: var(--accent); }
+  .day-chip.logged { border-color: var(--green); color: var(--green); }
+  .day-chip.active.logged { background: var(--green); border-color: var(--green); color: white; }
+
+  /* States */
+  .placeholder {
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 32px; gap: 8px;
+    color: var(--text-dim); text-align: center; min-height: 120px;
+  }
+
+  .placeholder .ico { font-size: 32px; opacity: 0.5; }
+  .placeholder p { font-size: 13px; }
+
+  .loading-state {
+    display: flex; align-items: center; gap: 10px;
+    padding: 24px; color: var(--text-muted); font-size: 13px;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .spinner {
+    width: 18px; height: 18px;
+    border: 2px solid var(--border); border-top-color: var(--accent);
+    border-radius: 50%; animation: spin 0.7s linear infinite; flex-shrink: 0;
+  }
+
+  /* AI content */
+  .ai-content h3 {
+    font-family: 'Google Sans', sans-serif; font-size: 12px; font-weight: 600;
+    color: var(--accent); margin: 16px 0 6px;
+    text-transform: uppercase; letter-spacing: 0.5px;
+    padding-bottom: 4px; border-bottom: 1px solid var(--border-light);
+  }
+
+  .ai-content h3:first-child { margin-top: 0; }
+  .ai-content p { margin-bottom: 8px; line-height: 1.65; color: var(--text); font-size: 14px; }
+  .ai-content ul { list-style: none; margin-bottom: 10px; }
+
+  .ai-content ul li {
+    padding: 3px 0 3px 18px; position: relative;
+    color: var(--text-muted); font-size: 14px; line-height: 1.6;
+  }
+
+  .ai-content ul li::before { content: '•'; position: absolute; left: 6px; color: var(--accent); }
+  .ai-content strong { color: var(--text); font-weight: 500; }
+
+  /* Week chips */
+  .week-chips { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+
+  .week-chip {
+    display: flex; align-items: center; gap: 6px;
+    padding: 6px 14px; border-radius: 16px;
+    border: 1px solid var(--border); background: var(--surface);
+    font-size: 13px; cursor: pointer; transition: all 0.15s;
+    font-family: 'Google Sans', sans-serif; color: var(--text-muted);
+  }
+
+  .week-chip:hover { background: var(--hover); }
+  .week-chip.done { border-color: var(--green); color: var(--green); background: #e6f4ea; }
+  .week-chip.today { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }
+
+  /* Day type tabs */
+  .type-tabs { display: flex; border-bottom: 1px solid var(--border); margin-bottom: 16px; }
+
+  .type-tab {
+    padding: 10px 16px; font-size: 14px; color: var(--text-muted);
+    cursor: pointer; border-bottom: 3px solid transparent;
+    transition: all 0.15s; background: none;
+    border-left: none; border-right: none; border-top: none;
+    font-family: 'Google Sans', sans-serif; font-weight: 500;
+  }
+
+  .type-tab:hover { color: var(--accent); background: var(--accent-light); }
+  .type-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  /* Supplement rows */
+  .supp-row {
+    display: flex; align-items: flex-start;
+    padding: 14px 0; gap: 14px;
+    border-bottom: 1px solid var(--border-light);
+  }
+
+  .supp-row:last-child { border-bottom: none; }
+
+  .supp-icon {
+    width: 38px; height: 38px; border-radius: 50%;
+    background: var(--accent-light);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px; flex-shrink: 0;
+  }
+
+  .supp-name {
+    font-family: 'Google Sans', sans-serif;
+    font-size: 14px; font-weight: 500; color: var(--text); margin-bottom: 2px;
+  }
+
+  .supp-dose { font-size: 12px; color: var(--text-muted); margin-bottom: 4px; }
+  .supp-timing { font-size: 13px; color: var(--text-muted); line-height: 1.5; }
+
+  .tag {
+    display: inline-flex; align-items: center;
+    padding: 2px 10px; border-radius: 12px;
+    font-size: 11px; font-weight: 500; margin-right: 4px; margin-bottom: 4px;
+  }
+
+  .tag-pre { background: #fce8e6; color: #c5221f; }
+  .tag-post { background: #e6f4ea; color: #137333; }
+  .tag-daily { background: var(--accent-light); color: #1557b0; }
+  .tag-night { background: #f3e8fd; color: #7b1fa2; }
+
+  /* Protein bar */
+  .pbar-label { display: flex; justify-content: space-between; font-size: 12px; color: var(--text-muted); margin-bottom: 6px; }
+  .pbar { height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; }
+  .pbar-fill { height: 100%; background: var(--accent); border-radius: 2px; }
+
+  .info-chips { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+  .info-chip {
+    padding: 4px 12px; border-radius: 12px;
+    background: var(--accent-light); color: var(--accent);
+    font-size: 12px; font-weight: 500; font-family: 'Google Sans', sans-serif;
+  }
+
+  .wod-log-entry { padding: 12px 0; border-bottom: 1px solid var(--border-light); }
+  .wod-log-entry:last-child { border-bottom: none; }
+  .wod-log-day { font-family: 'Google Sans', sans-serif; font-size: 13px; font-weight: 500; color: var(--accent); margin-bottom: 4px; }
+  .wod-log-text { font-size: 13px; color: var(--text-muted); white-space: pre-wrap; line-height: 1.5; }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="logo">
+    <div class="logo-icon">W+</div>
+    <span class="logo-text">WOD<span>Coach</span></span>
+  </div>
+  <div class="search-wrap">
+    <div class="search-bar">
+      <span>🔍</span>
+      <input type="text" placeholder="Search WOD history">
+    </div>
+  </div>
+  <div class="header-right">
+    <span class="conn-status conn-loading" id="conn-status">Connecting...</span>
+    <div class="avatar">B</div>
+  </div>
+</div>
+
+<div class="body">
+
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <button class="compose-btn" onclick="goToLogWOD()">
+      <span>✏️</span>
+      <span>Log WOD</span>
+    </button>
+    <div class="nav-item active" id="nav-wod" onclick="showPage('wod','nav-wod')">
+      <span class="nav-icon">🏋️</span>
+      <span class="nav-label">Today's WOD</span>
+    </div>
+    <div class="nav-item" id="nav-week" onclick="showPage('week','nav-week')">
+      <span class="nav-icon">📅</span>
+      <span class="nav-label">This Week</span>
+      <span class="nav-badge" id="badge-week"></span>
+    </div>
+    <div class="sidebar-divider"></div>
+    <div class="sidebar-section-label">Health</div>
+    <div class="nav-item" id="nav-nutrition" onclick="showPage('nutrition','nav-nutrition')">
+      <span class="nav-icon">🥗</span>
+      <span class="nav-label">Nutrition</span>
+    </div>
+    <div class="nav-item" id="nav-supplements" onclick="showPage('supplements','nav-supplements')">
+      <span class="nav-icon">💊</span>
+      <span class="nav-label">Supplements</span>
+    </div>
+  </div>
+
+  <!-- MAIN -->
+  <div class="main">
+
+    <!-- TODAY'S WOD -->
+    <div id="page-wod" class="page active">
+      <div class="toolbar">
+        <span class="page-title">Today's WOD</span>
+        <div class="toolbar-spacer"></div>
+        <div class="day-chips" id="day-chips"></div>
+      </div>
+      <div class="scroll-panel">
+        <div class="two-col">
+          <div class="card">
+            <div class="card-header">
+              <div>
+                <div class="card-title" id="wod-card-title">Log Your WOD</div>
+                <div class="card-sub">Enter today's workout to get a supplemental recommendation</div>
+              </div>
+            </div>
+            <div class="card-body">
+              <textarea id="wod-input" placeholder="Paste or type your WOD here...&#10;&#10;Example:&#10;EMOM x 8: 2 Snatches @ RPE 5-6&#10;&#10;AMRAP 10:&#10;50 Double Unders&#10;12 Air Squats&#10;6 DB Ground to Overhead (50/35)"></textarea>
+              <div class="btn-row">
+                <button class="btn" onclick="clearWOD()">Clear</button>
+                <button class="btn btn-primary" id="analyze-btn" onclick="analyzeWOD()">Analyze WOD</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">Supplemental Recommendation</div>
+            </div>
+            <div class="card-body" id="wod-response">
+              <div class="placeholder">
+                <div class="ico">💪</div>
+                <p>Enter your WOD and click Analyze to get a personalized supplemental workout.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- THIS WEEK -->
+    <div id="page-week" class="page">
+      <div class="toolbar">
+        <span class="page-title">This Week</span>
+        <div class="toolbar-spacer"></div>
+        <button class="btn btn-primary" onclick="getWeeklyAnalysis()">Analyze Week</button>
+      </div>
+      <div class="scroll-panel">
+        <div class="card">
+          <div class="card-header"><div class="card-title">Weekly Training Log</div></div>
+          <div class="card-body">
+            <div class="week-chips" id="week-chips"></div>
+            <div id="week-wod-list"></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header"><div class="card-title">Weekly Analysis</div></div>
+          <div class="card-body" id="week-response">
+            <div class="placeholder">
+              <div class="ico">📊</div>
+              <p>Log at least 2 days then click Analyze Week for fatigue tracking and rest day recommendations.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- NUTRITION -->
+    <div id="page-nutrition" class="page">
+      <div class="toolbar"><span class="page-title">Nutrition</span></div>
+      <div class="scroll-panel">
+        <div class="card">
+          <div class="card-body">
+            <div class="pbar-label">
+              <span>Daily Protein Target</span>
+              <strong>136–175g / day</strong>
+            </div>
+            <div class="pbar"><div class="pbar-fill" style="width:75%"></div></div>
+            <div class="info-chips">
+              <span class="info-chip">195 lbs</span>
+              <span class="info-chip">0.7–0.9g per lb bodyweight</span>
+              <span class="info-chip">Strength + Hypertrophy</span>
+              <span class="info-chip">6x / week CrossFit</span>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header"><div class="card-title">Nutrition Plan by Training Type</div></div>
+          <div class="card-body" style="padding-top:0;">
+            <div class="type-tabs">
+              <button class="type-tab active" onclick="selectNutrition('heavy',this)">Heavy</button>
+              <button class="type-tab" onclick="selectNutrition('conditioning',this)">Conditioning</button>
+              <button class="type-tab" onclick="selectNutrition('mixed',this)">Mixed</button>
+              <button class="type-tab" onclick="selectNutrition('rest',this)">Rest Day</button>
+            </div>
+            <div id="nutrition-content" class="ai-content"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SUPPLEMENTS -->
+    <div id="page-supplements" class="page">
+      <div class="toolbar"><span class="page-title">Supplements</span></div>
+      <div class="scroll-panel">
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">Your Stack — Timing & Dosing</div>
+              <div class="card-sub">Calibrated to 195 lbs, 6x/week CrossFit, strength + hypertrophy goal</div>
+            </div>
+          </div>
+          <div class="card-body" id="supp-list"></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ─────────────────────────────────────────────────────────────────────────────
+// CONFIG — replace these two values with your own from Supabase
+// ─────────────────────────────────────────────────────────────────────────────
+const SUPABASE_URL  = "YOUR_SUPABASE_URL";   // e.g. https://xyzxyz.supabase.co
+const SUPABASE_ANON = "YOUR_SUPABASE_ANON_KEY";
+// ─────────────────────────────────────────────────────────────────────────────
+
+const { createClient } = supabase;
+const db = createClient(SUPABASE_URL, SUPABASE_ANON);
+
+const DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+
+// In-memory cache of this week's logs
+let wodCache = {}; // { dayIndex: { wod, recommendation } }
+let currentDay = getTodayIndex();
+
+// ── INIT ────────────────────────────────────────────────────────────────────
+
+async function init() {
+  setConnStatus('loading', 'Connecting...');
+  try {
+    await loadWeekFromDB();
+    setConnStatus('ok', 'Connected');
+  } catch(e) {
+    setConnStatus('err', 'DB offline — using local cache');
+    loadFromLocalCache();
+  }
+  renderDayChips();
+  renderSupplements();
+  document.getElementById('nutrition-content').innerHTML = nutritionData['heavy'];
+}
+
+function setConnStatus(state, msg) {
+  const el = document.getElementById('conn-status');
+  el.textContent = msg;
+  el.className = 'conn-status conn-' + (state === 'loading' ? 'loading' : state === 'ok' ? 'ok' : 'err');
+}
+
+// ── DATABASE ────────────────────────────────────────────────────────────────
+
+function getWeekStart() {
+  const d = new Date(), day = d.getDay();
+  d.setDate(d.getDate() + (day === 0 ? -6 : 1 - day));
+  d.setHours(0,0,0,0);
+  return d.toISOString().split('T')[0];
+}
+
+function getTodayIndex() {
+  const d = new Date().getDay();
+  return d === 0 ? 6 : d - 1;
+}
+
+async function loadWeekFromDB() {
+  const week = getWeekStart();
+  const { data, error } = await db
+    .from('wod_logs')
+    .select('day_index, wod, recommendation')
+    .eq('week_start', week);
+
+  if (error) throw error;
+
+  wodCache = {};
+  (data || []).forEach(row => {
+    wodCache[row.day_index] = { wod: row.wod, recommendation: row.recommendation };
+  });
+
+  // Persist to localStorage as fallback
+  localStorage.setItem('wodcoach_cache', JSON.stringify({ week, data: wodCache }));
+}
+
+function loadFromLocalCache() {
+  try {
+    const raw = JSON.parse(localStorage.getItem('wodcoach_cache'));
+    if (raw && raw.week === getWeekStart()) {
+      wodCache = raw.data || {};
+    }
+  } catch(e) { wodCache = {}; }
+}
+
+async function saveWODtoDB(dayIndex, wod, recommendation) {
+  const week = getWeekStart();
+  const { error } = await db
+    .from('wod_logs')
+    .upsert({
+      week_start: week,
+      day_index: dayIndex,
+      wod,
+      recommendation,
+      updated_at: new Date().toISOString()
+    }, { onConflict: 'week_start,day_index' });
+
+  if (error) console.warn('DB save failed:', error.message);
+
+  // Always update cache
+  wodCache[dayIndex] = { wod, recommendation };
+  localStorage.setItem('wodcoach_cache', JSON.stringify({ week: getWeekStart(), data: wodCache }));
+}
+
+// ── AI CALL via Supabase Edge Function ──────────────────────────────────────
+
+async function callAI(prompt) {
+  const { data, error } = await db.functions.invoke('anthropic-proxy', {
+    body: { prompt }
+  });
+  if (error) throw error;
+  return data.text;
+}
+
+// ── NAVIGATION ───────────────────────────────────────────────────────────────
+
+function showPage(page, navId) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-' + page).classList.add('active');
+  if (navId) document.getElementById(navId).classList.add('active');
+  if (page === 'week') renderWeekPage();
+}
+
+function goToLogWOD() {
+  showPage('wod', 'nav-wod');
+  document.getElementById('wod-input').focus();
+}
+
+// ── DAY CHIPS ────────────────────────────────────────────────────────────────
+
+function renderDayChips() {
+  const wrap = document.getElementById('day-chips');
+  wrap.innerHTML = '';
+  DAYS.forEach((day, i) => {
+    const logged = !!wodCache[i]?.wod;
+    const btn = document.createElement('button');
+    btn.className = 'day-chip' + (currentDay === i ? ' active' : '') + (logged ? ' logged' : '');
+    btn.textContent = day;
+    btn.onclick = () => selectDay(i);
+    wrap.appendChild(btn);
+  });
+
+  const d = wodCache[currentDay];
+  document.getElementById('wod-input').value = d?.wod || '';
+  document.getElementById('wod-card-title').textContent = DAYS[currentDay] + "'s WOD";
+
+  if (d?.recommendation) {
+    renderAI('wod-response', d.recommendation);
+  } else {
+    document.getElementById('wod-response').innerHTML = `<div class="placeholder"><div class="ico">💪</div><p>Enter your WOD and click Analyze to get a personalized supplemental workout.</p></div>`;
+  }
+
+  const loggedCount = Object.values(wodCache).filter(d => d?.wod).length;
+  document.getElementById('badge-week').textContent = loggedCount || '';
+}
+
+function selectDay(i) {
+  currentDay = i;
+  renderDayChips();
+}
+
+function clearWOD() {
+  document.getElementById('wod-input').value = '';
+  document.getElementById('wod-response').innerHTML = `<div class="placeholder"><div class="ico">💪</div><p>Enter your WOD and click Analyze to get a personalized supplemental workout.</p></div>`;
+}
+
+// ── ANALYZE WOD ──────────────────────────────────────────────────────────────
+
+async function analyzeWOD() {
+  const wod = document.getElementById('wod-input').value.trim();
+  if (!wod) return;
+
+  const btn = document.getElementById('analyze-btn');
+  btn.disabled = true;
+  btn.textContent = 'Analyzing...';
+  document.getElementById('wod-response').innerHTML = `<div class="loading-state"><div class="spinner"></div><span>Analyzing your WOD and building a recommendation...</span></div>`;
+
+  const weekContext = Object.entries(wodCache)
+    .filter(([k,v]) => v?.wod)
+    .map(([k,v]) => `${DAYS[k]}: ${v.wod}`)
+    .join('\n') || 'None logged yet';
+
+  const prompt = `You are a CrossFit and hypertrophy coach helping an athlete named Bryan. He is 195 lbs, trains 6 days/week at a CrossFit gym (1 hour classes), goal is equal balance of muscle size and strength. Supplement stack: Creatine 10g, Beta-Alanine 6.2g, Citrulline Malate 6g, Arginine HCl 10g (pre-workout), Whey Protein post-workout, Omega-3, Magnesium 166mg, D3 3000IU, K2 120mcg, L-Theanine 225mg, Multivitamin.
+
+Today's WOD:
+${wod}
+
+Other WODs logged this week:
+${weekContext}
+
+Provide exactly three sections:
+
+### WOD Assessment
+2-3 sentences on what muscle groups and energy systems this workout taxes.
+
+### Supplemental Workout
+3-4 specific exercises to do AFTER this WOD. For each: exercise name, sets x reps, one-line rationale. Avoid muscle groups heavily taxed by the WOD. Recommend completing all sets of one exercise before moving to the next.
+
+### Week Load Note
+One short observation on whether today is a good day to add supplemental volume based on what has been logged this week.
+
+Direct, specific, no fluff. Write like a coach. No em dashes.`;
+
+  try {
+    const text = await callAI(prompt);
+    await saveWODtoDB(currentDay, wod, text);
+    renderDayChips();
+    renderAI('wod-response', text);
+  } catch(e) {
+    document.getElementById('wod-response').innerHTML = `<div class="ai-content"><p style="color:#ea4335">Error: ${e.message || 'Something went wrong. Please try again.'}</p></div>`;
+  }
+
+  btn.disabled = false;
+  btn.textContent = 'Analyze WOD';
+}
+
+// ── WEEK PAGE ────────────────────────────────────────────────────────────────
+
+function renderWeekPage() {
+  const chips = document.getElementById('week-chips');
+  const list = document.getElementById('week-wod-list');
+  const today = getTodayIndex();
+  chips.innerHTML = '';
+  list.innerHTML = '';
+
+  DAYS.forEach((day, i) => {
+    const d = wodCache[i];
+    const chip = document.createElement('div');
+    chip.className = 'week-chip' + (d?.wod ? ' done' : '') + (i === today ? ' today' : '');
+    chip.innerHTML = `<span>${i === today ? '📍' : d?.wod ? '✅' : '○'}</span>${day}`;
+    chip.onclick = () => { selectDay(i); showPage('wod','nav-wod'); };
+    chips.appendChild(chip);
+
+    if (d?.wod) {
+      const row = document.createElement('div');
+      row.className = 'wod-log-entry';
+      row.innerHTML = `<div class="wod-log-day">${day}</div><div class="wod-log-text">${d.wod}</div>`;
+      list.appendChild(row);
+    }
+  });
+
+  if (!list.innerHTML) {
+    list.innerHTML = `<div class="placeholder"><p>No WODs logged yet this week. Start by entering today's workout.</p></div>`;
+  }
+}
+
+// ── WEEKLY ANALYSIS ──────────────────────────────────────────────────────────
+
+async function getWeeklyAnalysis() {
+  const logged = Object.entries(wodCache).filter(([k,v]) => v?.wod);
+  if (!logged.length) {
+    document.getElementById('week-response').innerHTML = `<div class="placeholder"><p>Log at least one WOD first.</p></div>`;
+    return;
+  }
+
+  document.getElementById('week-response').innerHTML = `<div class="loading-state"><div class="spinner"></div><span>Analyzing weekly load, muscle group overlap, and fatigue...</span></div>`;
+
+  const summary = logged.map(([k,v]) => `${DAYS[k]}: ${v.wod}`).join('\n\n');
+
+  const prompt = `You are a CrossFit and strength coach. Analyze Bryan's training week. He is 195 lbs, 6 days/week CrossFit, equal hypertrophy and strength goal.
+
+WODs this week:
+${summary}
+
+Provide exactly four sections:
+
+### Muscle Group Overlap
+Which muscle groups are overtrained or undertrained based on WODs logged.
+
+### Rest Day Recommendations
+Specific days to rest or reduce volume for the rest of the week with clear reasoning.
+
+### Supplemental Adjustments
+Changes to recommended add-on work for remaining days given accumulated fatigue.
+
+### Overall Load Assessment
+One sentence: underdone, appropriate, or overdone.
+
+Direct and specific. No fluff. No em dashes.`;
+
+  try {
+    const text = await callAI(prompt);
+    renderAI('week-response', text);
+  } catch(e) {
+    document.getElementById('week-response').innerHTML = `<div class="ai-content"><p style="color:#ea4335">Error: ${e.message || 'Something went wrong.'}</p></div>`;
+  }
+}
+
+// ── NUTRITION ────────────────────────────────────────────────────────────────
+
+const nutritionData = {
+  heavy: `<h3>Pre-Workout (60–90 min before)</h3><ul><li>Meal: 60–80g carbs + 30–40g protein. Rice, oats, or potato with chicken or eggs.</li><li>Full pre-workout stack: Creatine 10g, Citrulline Malate 6g, Arginine HCl 10g, Beta-Alanine 6.2g</li><li>L-Theanine 225mg if stacking with caffeine to smooth the edge</li></ul><h3>Post-Workout (within 30–45 min)</h3><ul><li>Whey protein 40–50g immediately after</li><li>Fast carbs 40–60g: banana, rice cakes, or dextrose to spike insulin and drive nutrient uptake</li></ul><h3>Rest of Day</h3><ul><li>Total protein: 155–175g across all meals</li><li>Total carbs: 250–350g to support glycogen replenishment</li><li>Omega-3 with a fat-containing meal; D3 + K2 with breakfast or lunch</li><li>Magnesium 166mg 30–60 min before bed</li></ul>`,
+  conditioning: `<h3>Pre-Workout (45–60 min before)</h3><ul><li>Lighter meal: 40–50g carbs + 25–30g protein. Oats, toast, or fruit with Greek yogurt.</li><li>Pre-workout stack as normal. Citrulline and arginine improve conditioning performance.</li></ul><h3>Post-Workout</h3><ul><li>Whey protein 40–50g within 45 min</li><li>Moderate carbs 30–40g. No need to slam fast carbs like a heavy day.</li></ul><h3>Rest of Day</h3><ul><li>Total protein: 140–160g</li><li>Total carbs: 180–250g. You burned significant glycogen so don't cut carbs entirely.</li><li>Omega-3, D3/K2, and Multivitamin with meals; Magnesium before bed</li></ul>`,
+  mixed: `<h3>Pre-Workout (60–90 min before)</h3><ul><li>Meal: 50–70g carbs + 30–40g protein</li><li>Full pre-workout stack: Creatine, Beta-Alanine, Citrulline, Arginine</li><li>L-Theanine if using stimulants</li></ul><h3>Post-Workout</h3><ul><li>Whey 40–50g + 40–50g mixed carbs (fast and slow)</li></ul><h3>Rest of Day</h3><ul><li>Total protein: 150–170g; Total carbs: 220–300g</li><li>All daily supplements with meals; Magnesium before bed</li></ul>`,
+  rest: `<h3>Key Priorities</h3><ul><li>Keep protein high: 136–155g. Muscle protein synthesis stays elevated 24–48 hours post-training.</li><li>Reduce carbs modestly: 150–200g is sufficient on a rest day.</li><li>Increase fat intake slightly to compensate for lower carbs.</li></ul><h3>Supplement Adjustments</h3><ul><li>Creatine: still take 5–10g with a meal. Daily saturation matters more than training-day timing.</li><li>Skip Beta-Alanine, Citrulline, and Arginine today</li><li>Continue Omega-3, D3/K2, Multivitamin, L-Theanine as normal</li><li>Magnesium before bed especially valuable on rest days for deep sleep</li></ul><h3>Focus Areas</h3><ul><li>Sleep 7–9 hours. This is where muscle is actually built.</li><li>Hydration: 3–4L water throughout the day</li><li>Light movement (walk, stretch) improves blood flow to sore muscles</li></ul>`
+};
+
+function selectNutrition(type, el) {
+  document.querySelectorAll('.type-tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('nutrition-content').innerHTML = nutritionData[type];
+}
+
+// ── SUPPLEMENTS ──────────────────────────────────────────────────────────────
+
+const supps = [
+  { icon:'⚡', name:'Creatine', dose:'10g', tags:['pre'], timing:'Take 30–45 min before training. On rest days, take with your first meal. Daily saturation matters more than exact timing.' },
+  { icon:'🔥', name:'Beta-Alanine', dose:'6.2g', tags:['pre'], timing:'Take 20–30 min pre-workout. Tingling (paresthesia) is normal. Effective for sustained high-intensity work.' },
+  { icon:'💉', name:'Citrulline Malate', dose:'6g', tags:['pre'], timing:'Take 30–45 min before training. Improves blood flow, reduces fatigue, and enhances performance.' },
+  { icon:'🩸', name:'Arginine HCl', dose:'10g', tags:['pre'], timing:'Take 30–60 min pre-workout. Stacks with citrulline for a compounded nitric oxide effect.' },
+  { icon:'🥛', name:'Whey Protein', dose:'40–50g', tags:['post'], timing:'Within 30–45 min post-workout. At 195 lbs, target 40–50g per serving to maximize muscle protein synthesis.' },
+  { icon:'🐟', name:'Omega-3 (CanPrev)', dose:'Per label', tags:['daily'], timing:'Take with a meal containing dietary fat. Reduces exercise-induced inflammation and supports joint health.' },
+  { icon:'🌙', name:'Magnesium', dose:'166mg', tags:['night'], timing:'Best taken 30–60 min before sleep. Supports recovery, sleep quality, and muscle relaxation after training.' },
+  { icon:'☀️', name:'Vitamin D3 + K2', dose:'D3: 3,000 IU / K2: 120mcg', tags:['daily'], timing:'Take together with a fat-containing meal. K2 directs calcium to bones, not arteries. Important at this D3 dose.' },
+  { icon:'🧘', name:'L-Theanine', dose:'225mg', tags:['daily'], timing:'Take with pre-workout to smooth caffeine jitteriness. Also effective 30 min before bed for calm, quality sleep.' },
+  { icon:'💊', name:'Multivitamin (Younitedwellness)', dose:'Per label', tags:['daily'], timing:'Take with breakfast. Covers micronutrient gaps from high training volume. Pair with food for better absorption.' },
+];
+
+function renderSupplements() {
+  const list = document.getElementById('supp-list');
+  supps.forEach(s => {
+    const row = document.createElement('div');
+    row.className = 'supp-row';
+    const tags = s.tags.map(t => `<span class="tag tag-${t}">${t==='pre'?'Pre-Workout':t==='post'?'Post-Workout':t==='night'?'Nighttime':'Daily'}</span>`).join('');
+    row.innerHTML = `
+      <div class="supp-icon">${s.icon}</div>
+      <div style="flex:1;">
+        <div class="supp-name">${s.name}</div>
+        <div class="supp-dose">${s.dose}</div>
+        <div style="margin-bottom:6px;">${tags}</div>
+        <div class="supp-timing">${s.timing}</div>
+      </div>`;
+    list.appendChild(row);
+  });
+}
+
+// ── RENDER AI MARKDOWN ───────────────────────────────────────────────────────
+
+function renderAI(id, md) {
+  let html = md
+    .replace(/###\s(.+)/g, '<h3>$1</h3>')
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .split('\n')
+    .map(line => {
+      const t = line.trim();
+      if (t.startsWith('- ') || t.startsWith('* ')) return `<li>${t.slice(2)}</li>`;
+      if (t && !t.startsWith('<')) return `<p>${t}</p>`;
+      return t;
+    }).join('\n');
+  html = html.replace(/(<li>[\s\S]*?<\/li>\n?)+/g, m => `<ul>${m}</ul>`);
+  document.getElementById(id).innerHTML = `<div class="ai-content">${html}</div>`;
+}
+
+// ── START ────────────────────────────────────────────────────────────────────
+init();
+</script>
+</body>
+</html>
